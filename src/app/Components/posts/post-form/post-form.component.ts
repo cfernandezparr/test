@@ -69,11 +69,7 @@ export class PostFormComponent implements OnInit {
 
     this.num_likes = new UntypedFormControl(this.post.num_likes);
     this.num_dislikes = new UntypedFormControl(this.post.num_dislikes);
-
     this.categories = new UntypedFormControl([]);
-
-    // get categories by user and load multi select
-    this.loadCategories();
 
     this.postForm = this.formBuilder.group({
       title: this.title,
@@ -85,65 +81,66 @@ export class PostFormComponent implements OnInit {
     });
   }
 
-  private async loadCategories(): Promise<void> {
-    let errorResponse: any;
-    const userId = this.localStorageService.get('user_id');
-    if (userId) {
-      try {
-        this.categoriesList = await this.categoryService.getCategoriesByUserId(
-          userId
-        );
-      } catch (error: any) {
-        errorResponse = error.error;
-        this.sharedService.errorLog(errorResponse);
-      }
+  ngOnInit(): void {
+    this.loadCategories();
+
+    if (this.postId) {
+      this.isUpdateMode = true;
+
+      this.postService.getPostById(this.postId).subscribe({
+        next: (data) => {
+          this.post = data;
+
+          this.title.setValue(this.post.title);
+          this.description.setValue(this.post.description);
+          this.publication_date.setValue(
+            formatDate(this.post.publication_date, 'yyyy-MM-dd', 'en')
+          );
+
+          const categoriesIds = this.post.categories.map(
+            (cat: CategoryDTO) => cat.categoryId
+          );
+          this.categories.setValue(categoriesIds);
+
+          this.num_likes.setValue(this.post.num_likes);
+          this.num_dislikes.setValue(this.post.num_dislikes);
+
+          this.postForm = this.formBuilder.group({
+            title: this.title,
+            description: this.description,
+            publication_date: this.publication_date,
+            categories: this.categories,
+            num_likes: this.num_likes,
+            num_dislikes: this.num_dislikes,
+          });
+        },
+        error: (error) => {
+          const errorResponse = error.error;
+          this.sharedService.errorLog(errorResponse);
+        },
+      });
     }
   }
 
-  async ngOnInit(): Promise<void> {
-    let errorResponse: any;
-    // update
-    if (this.postId) {
-      this.isUpdateMode = true;
-      try {
-        this.post = await this.postService.getPostById(this.postId);
-
-        this.title.setValue(this.post.title);
-
-        this.description.setValue(this.post.description);
-
-        this.publication_date.setValue(
-          formatDate(this.post.publication_date, 'yyyy-MM-dd', 'en')
-        );
-
-        let categoriesIds: string[] = [];
-        this.post.categories.forEach((cat: CategoryDTO) => {
-          categoriesIds.push(cat.categoryId);
-        });
-
-        this.categories.setValue(categoriesIds);
-
-        this.num_likes.setValue(this.post.num_likes);
-        this.num_dislikes.setValue(this.post.num_dislikes);
-
-        this.postForm = this.formBuilder.group({
-          title: this.title,
-          description: this.description,
-          publication_date: this.publication_date,
-          categories: this.categories,
-          num_likes: this.num_likes,
-          num_dislikes: this.num_dislikes,
-        });
-      } catch (error: any) {
-        errorResponse = error.error;
-        this.sharedService.errorLog(errorResponse);
-      }
+  private loadCategories(): void {
+    const userId = this.localStorageService.get('user_id');
+    if (userId) {
+      this.categoryService.getCategoriesByUserId(userId).subscribe({
+        next: (data) => {
+          this.categoriesList = data;
+        },
+        error: (error) => {
+          const errorResponse = error.error;
+          this.sharedService.errorLog(errorResponse);
+        },
+      });
     }
   }
 
   private async editPost(): Promise<boolean> {
     let errorResponse: any;
     let responseOK: boolean = false;
+
     if (this.postId) {
       const userId = this.localStorageService.get('user_id');
       if (userId) {
@@ -173,6 +170,7 @@ export class PostFormComponent implements OnInit {
   private async createPost(): Promise<boolean> {
     let errorResponse: any;
     let responseOK: boolean = false;
+
     const userId = this.localStorageService.get('user_id');
     if (userId) {
       this.post.userId = userId;

@@ -20,8 +20,7 @@ export class AuthService {
     this.urlBlogUocApi = 'http://localhost:3000/' + this.controller;
   }
 
-  // Antes: login(auth: AuthDTO): Promise<AuthToken>
-  login(auth: AuthDTO): Observable<AuthToken> {
+  login(auth: { email: string; password: string }): Observable<AuthToken>{
     return this.http.post<AuthToken>(this.urlBlogUocApi, auth);
   }
 }

@@ -19,22 +19,27 @@ export class DashboardComponent implements OnInit {
     private sharedService: SharedService
   ) {}
 
-  async ngOnInit(): Promise<void> {
-    await this.loadPosts();
-
-    this.posts.forEach((post) => {
-      this.numLikes = this.numLikes + post.num_likes;
-      this.numDislikes = this.numDislikes + post.num_dislikes;
-    });
+  ngOnInit(): void {
+    this.loadPosts();
   }
 
-  private async loadPosts(): Promise<void> {
-    let errorResponse: any;
-    try {
-      this.posts = await this.postService.getPosts();
-    } catch (error: any) {
-      errorResponse = error.error;
-      this.sharedService.errorLog(errorResponse);
-    }
+  private loadPosts(): void {
+    this.postService.getPosts().subscribe({
+      next: (data) => {
+        this.posts = data;
+
+        this.numLikes = 0;
+        this.numDislikes = 0;
+
+        this.posts.forEach((post) => {
+          this.numLikes += post.num_likes;
+          this.numDislikes += post.num_dislikes;
+        });
+      },
+      error: (error) => {
+        const errorResponse = error.error;
+        this.sharedService.errorLog(errorResponse);
+      },
+    });
   }
 }

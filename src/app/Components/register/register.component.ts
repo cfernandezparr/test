@@ -94,7 +94,7 @@ export class RegisterComponent implements OnInit {
 
   ngOnInit(): void {}
 
-  async register(): Promise<void> {
+  register(): void {
     let responseOK: boolean = false;
     this.isValidForm = false;
     let errorResponse: any;
@@ -106,34 +106,38 @@ export class RegisterComponent implements OnInit {
     this.isValidForm = true;
     this.registerUser = this.registerForm.value;
 
-    try {
-      await this.userService.register(this.registerUser);
-      responseOK = true;
-    } catch (error: any) {
-      responseOK = false;
-      errorResponse = error.error;
+    this.userService.register(this.registerUser).subscribe({
+      next: async () => {
+        responseOK = true;
 
-      const headerInfo: HeaderMenus = {
-        showAuthSection: false,
-        showNoAuthSection: true,
-      };
-      this.headerMenusService.headerManagement.next(headerInfo);
+        await this.sharedService.managementToast(
+          'registerFeedback',
+          responseOK,
+          undefined
+        );
 
-      this.sharedService.errorLog(errorResponse);
-    }
+        this.registerForm.reset();
+        this.birth_date.setValue(formatDate(new Date(), 'yyyy-MM-dd', 'en'));
+        this.router.navigateByUrl('home');
+      },
+      error: async (error) => {
+        responseOK = false;
+        errorResponse = error.error;
 
-    await this.sharedService.managementToast(
-      'registerFeedback',
-      responseOK,
-      errorResponse
-    );
+        const headerInfo: HeaderMenus = {
+          showAuthSection: false,
+          showNoAuthSection: true,
+        };
+        this.headerMenusService.headerManagement.next(headerInfo);
 
-    if (responseOK) {
-      // Reset the form
-      this.registerForm.reset();
-      // After reset form we set birthDate to today again (is an example)
-      this.birth_date.setValue(formatDate(new Date(), 'yyyy-MM-dd', 'en'));
-      this.router.navigateByUrl('home');
-    }
+        this.sharedService.errorLog(errorResponse);
+
+        await this.sharedService.managementToast(
+          'registerFeedback',
+          responseOK,
+          errorResponse
+        );
+      },
+    });
   }
 }

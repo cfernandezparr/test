@@ -65,47 +65,42 @@ export class CategoryFormComponent implements OnInit {
     });
   }
 
-  async ngOnInit(): Promise<void> {
-    let errorResponse: any;
-
-    // update
+  ngOnInit(): void {
     if (this.categoryId) {
       this.isUpdateMode = true;
-      try {
-        this.category = await this.categoryService.getCategoryById(
-          this.categoryId
-        );
+      this.categoryService.getCategoryById(this.categoryId).subscribe({
+        next: (data) => {
+          this.category = data;
 
-        this.title.setValue(this.category.title);
+          this.title.setValue(this.category.title);
+          this.description.setValue(this.category.description);
+          this.css_color.setValue(this.category.css_color);
 
-        this.description.setValue(this.category.description);
-
-        this.css_color.setValue(this.category.css_color);
-
-        this.categoryForm = this.formBuilder.group({
-          title: this.title,
-          description: this.description,
-          css_color: this.css_color,
-        });
-      } catch (error: any) {
-        errorResponse = error.error;
-        this.sharedService.errorLog(errorResponse);
-      }
+          this.categoryForm = this.formBuilder.group({
+            title: this.title,
+            description: this.description,
+            css_color: this.css_color,
+          });
+        },
+        error: (error) => {
+          const errorResponse = error.error;
+          this.sharedService.errorLog(errorResponse);
+        },
+      });
     }
   }
 
   private async editCategory(): Promise<boolean> {
     let errorResponse: any;
     let responseOK: boolean = false;
+
     if (this.categoryId) {
       const userId = this.localStorageService.get('user_id');
       if (userId) {
         this.category.userId = userId;
+
         try {
-          await this.categoryService.updateCategory(
-            this.categoryId,
-            this.category
-          );
+          await this.categoryService.updateCategory(this.categoryId, this.category);
           responseOK = true;
         } catch (error: any) {
           errorResponse = error.error;
@@ -123,15 +118,18 @@ export class CategoryFormComponent implements OnInit {
         }
       }
     }
+
     return responseOK;
   }
 
   private async createCategory(): Promise<boolean> {
     let errorResponse: any;
     let responseOK: boolean = false;
+
     const userId = this.localStorageService.get('user_id');
     if (userId) {
       this.category.userId = userId;
+
       try {
         await this.categoryService.createCategory(this.category);
         responseOK = true;

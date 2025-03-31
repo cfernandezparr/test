@@ -6,11 +6,15 @@ import {
   Validators,
 } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AuthDTO } from 'src/app/Models/auth.dto';
 import { HeaderMenus } from 'src/app/Models/header-menus.dto';
-import { AuthService } from 'src/app/Services/auth.service';
+import { Store } from '@ngrx/store';
+import { AppState } from 'src/state/app.state';
+import * as AuthActions from 'src/state/auth/auth.actions';
+import {
+  selectAuthError,
+  selectUserId,
+} from 'src/state/auth/auth.selectors';
 import { HeaderMenusService } from 'src/app/Services/header-menus.service';
-import { LocalStorageService } from 'src/app/Services/local-storage.service';
 import { SharedService } from 'src/app/Services/shared.service';
 
 @Component({
@@ -19,21 +23,17 @@ import { SharedService } from 'src/app/Services/shared.service';
   styleUrls: ['./login.component.scss'],
 })
 export class LoginComponent implements OnInit {
-  loginUser: AuthDTO;
   email: UntypedFormControl;
   password: UntypedFormControl;
   loginForm: UntypedFormGroup;
 
   constructor(
     private formBuilder: UntypedFormBuilder,
-    private authService: AuthService,
     private sharedService: SharedService,
     private headerMenusService: HeaderMenusService,
-    private localStorageService: LocalStorageService,
-    private router: Router
+    private router: Router,
+    private store: Store<AppState>
   ) {
-    this.loginUser = new AuthDTO('', '', '', '');
-
     this.email = new UntypedFormControl('', [
       Validators.required,
       Validators.pattern('[a-z0-9._%+-]+@[a-z0-9.-]+.[a-z]{2,4}$'),
@@ -51,52 +51,43 @@ export class LoginComponent implements OnInit {
     });
   }
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    // Si hay login correcto
+    this.store.select(selectUserId).subscribe((userId) => {
+      if (userId) {
+        const headerInfo: HeaderMenus = {
+          showAuthSection: true,
+          showNoAuthSection: false,
+        };
+        this.headerMenusService.headerManagement.next(headerInfo);
+        this.router.navigateByUrl('home');
+      }
+    });
 
-  login(): void {
-    let responseOK: boolean = false;
-    let errorResponse: any;
-
-    this.loginUser.email = this.email.value;
-    this.loginUser.password = this.password.value;
-
-    this.authService.login(this.loginUser).subscribe({
-      next: async (authToken) => {
-        responseOK = true;
-        this.loginUser.user_id = authToken.user_id;
-        this.loginUser.access_token = authToken.access_token;
-        this.localStorageService.set('user_id', this.loginUser.user_id);
-        this.localStorageService.set('access_token', this.loginUser.access_token);
-
-        await this.sharedService.managementToast('loginFeedback',responseOK,undefined);
-
-        if (responseOK) {
-          const headerInfo: HeaderMenus = {
-            showAuthSection: true,
-            showNoAuthSection: false,
-          };
-          this.headerMenusService.headerManagement.next(headerInfo);
-          this.router.navigateByUrl('home');
-        }
-      },
-      error: async (error) => {
-        responseOK = false;
-        errorResponse = error.error;
-
+    // Si hay error
+    this.store.select(selectAuthError).subscribe((error) => {
+      if (error) {
         const headerInfo: HeaderMenus = {
           showAuthSection: false,
           showNoAuthSection: true,
         };
         this.headerMenusService.headerManagement.next(headerInfo);
-
-        this.sharedService.errorLog(error.error);
-
-        await this.sharedService.managementToast(
-          'loginFeedback',
-          responseOK,
-          errorResponse
-        );
-      },
+        this.sharedService.errorLog(error);
+        this.sharedService.managementToast('loginFeedback', false, error);
+      }
     });
+  }
+
+  login(): void {
+    if (this.loginForm.invalid) {
+      return;
+    }
+
+    const credentials = {
+      email: this.email.value,
+      password: this.password.value,
+    };
+
+    this.store.dispatch(AuthActions.login({ credentials }));
   }
 }
